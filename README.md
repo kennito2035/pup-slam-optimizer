@@ -1,4 +1,4 @@
-# LiDAR Arrangement Optimizer v1.0.0
+# LiDAR Arrangement Optimizer for PUP v1.0.1
 
 A standalone browser tool that uses **Multi-Objective Particle Swarm Optimization (MOPSO)** and **Fibonacci sphere seeding** to find optimal LiDAR sensor arrangements for drone platforms. Designed specifically for use with **[PUP — Parameter Uplink Spectagraph](https://github.com/kennito2035/pup-slam-simulation)**, a PUP simulator inspired by Prometheus 2012. Results can be exported directly as parameter tables for input into parametric CAD assemblies.
 
@@ -6,7 +6,7 @@ A standalone browser tool that uses **Multi-Objective Particle Swarm Optimizatio
 
 ## Overview
 
-Given a sensor count, drone body radius, and LiDAR hardware specifications, the optimizer searches for sensor orientations (pitch + yaw) that simultaneously maximize volumetric coverage and minimize inter-sensor overlap. The search space is the surface of a sphere, constrained to a user-selected orientation zone. A live Plotly 3D visualization updates in real time as the swarm evolves.
+Given a sensor count, drone body radius, and LiDAR hardware specifications, the optimizer searches for sensor orientations (pitch + yaw) that simultaneously maximize volumetric coverage and minimize inter-sensor overlap. The search space is the surface of a sphere, constrained to a user-selected orientation zone. A live Plotly 3D visualization updates in real time as the swarm evolves and resizes correctly with the browser window.
 
 ---
 
@@ -14,11 +14,12 @@ Given a sensor count, drone body radius, and LiDAR hardware specifications, the 
 
 - **MOPSO** — Multi-Objective Particle Swarm Optimization with a capped Pareto archive (max 100 solutions). Each PSO step runs 3 sub-iterations per animation frame via `requestAnimationFrame`, keeping the UI responsive throughout
 - **Fibonacci sphere initialization** — The swarm is seeded using the golden-angle Fibonacci spiral, giving near-uniform initial sensor spacing across the sphere before perturbation
-- **Two-objective fitness evaluation** — Each particle is evaluated against two objectives: blind spot ratio (fraction of 1,200 reference sphere points not covered by any sensor) and maximum pairwise sensor overlap (cosine similarity of facing normals). The Pareto front tracks all non-dominated solutions
+- **Two-objective fitness evaluation** — Each particle is evaluated against two objectives: blind spot ratio (fraction of 2,000 reference sphere points not covered by any sensor) and maximum pairwise sensor overlap (cosine similarity of facing normals). The Pareto front tracks all non-dominated solutions
 - **Body occlusion test** — For every reference point, a ray-sphere intersection check (`checkOcclusion`) determines whether the drone body blocks the line of sight from the sensor to the evaluation point, excluding self-occluded coverage from the fitness score
 - **Cosine-normalized yaw velocity** — Yaw PSO updates are divided by `cos(pitch)` to prevent particles from spinning excessively near the poles, stabilizing convergence at high and low latitudes
 - **Patience-based auto-stop** — Optimization halts automatically after 120 consecutive iterations with improvement below `1e-6`, preventing unnecessary compute after convergence
 - **Angular resolution auto-calculator** — H. and V. angular resolutions are computed live from scan frequency, ranging frequency, beam divergence (converted from mrad), channels, and FOV — accounting for beam divergence as a floor on the achievable resolution
+- **Responsive 3D plot** — The Plotly visualization fills its container at any window size and calls `Plotly.Plots.resize()` on window resize to stay correctly fitted
 - **CAD export matrix** — Produces a formatted plain-text report of all optimized sensor positions (pitch °, yaw °) alongside full hardware specs, PSO solution quality, and Pareto front size. Suitable for pasting directly into parametric assembly environments
 - **Controls lockout during optimization** — All inputs are disabled while the swarm runs; only the Stop button remains interactive
 
@@ -27,9 +28,9 @@ Given a sensor count, drone body radius, and LiDAR hardware specifications, the 
 ## File Structure
 
 ```
-PUP-optimizer-v1.0.html   # Main entry point and UI layout
-script.js                 # MOPSO engine, fitness evaluation, Plotly visualization, export
-styles.css                # Dark-mode UI styling
+PUP-optimizer-v1.0.1.html   # Main entry point and UI layout
+script.js                   # MOPSO engine, fitness evaluation, Plotly visualization, export
+styles.css                  # Dark-mode UI styling
 ```
 
 ---
@@ -38,7 +39,7 @@ styles.css                # Dark-mode UI styling
 
 - [Plotly.js 2.27.0](https://cdn.plot.ly/plotly-2.27.0.min.js) — 3D scatter visualization
 
-> No build step required. Open `PUP-optimizer-v1.0.html` directly in any modern browser. Internet connection required on first load.
+> No build step required. Open `PUP-optimizer-v1.0.1.html` directly in any modern browser. Internet connection required on first load.
 
 ---
 

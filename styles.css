@@ -64,11 +64,15 @@ body {
     border-radius: 12px;
     padding: 16px;
     display: grid;
+    /* Ensure the column stays fixed and the plot takes the rest */
     grid-template-columns: 320px 1fr;
+    /* Ensure the row takes up 100% of the container height */
+    grid-template-rows: 100%; 
     gap: 16px;
     box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6), inset 0 0 40px rgba(0, 229, 255, 0.02);
-    flex: 1 1 0;
-    min-height: 0;
+    flex: 1; /* Fills the space below the header */
+    min-height: 0; 
+    height: 100%;
     overflow: hidden;
 }
 
@@ -79,6 +83,7 @@ body {
     gap: 8px;
     overflow-y: auto;
     padding-right: 6px;
+    height: 100%; /* Ensure the sidebar doesn't collapse */
     min-height: 0;
 }
 
@@ -284,6 +289,8 @@ button:active {
     border: 1px solid var(--grid);
     border-radius: 8px;
     overflow: hidden;
+    height: 100%; /* Force the plot to match the grid height */
+    width: 100%;  /* Force the plot to match the grid width */
     min-height: 0;
 }
 

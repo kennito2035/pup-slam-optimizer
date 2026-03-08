@@ -222,17 +222,16 @@ function computeObjectives(params) {
     const sensorPos = normals.map(n => [n[0] * mountRad, n[1] * mountRad, n[2] * mountRad]);
 
     let coveredCount = 0;
-    let maxOverlap = 0;
+    let redundantCount = 0; // Tracks points hit by 2 or more sensors
 
     for (let pt of evalPoints) {
         const targetPt = [pt[0] * displayR, pt[1] * displayR, pt[2] * displayR];
-        let isCovered = false;
+        let hits = 0; // Count how many sensors can see this specific point
 
         for (let i = 0; i < normals.length; i++) {
             const n = normals[i];
             const pos = sensorPos[i];
 
-            // Vector from sensor to target point
             let dirX = targetPt[0] - pos[0];
             let dirY = targetPt[1] - pos[1];
             let dirZ = targetPt[2] - pos[2];
@@ -243,31 +242,30 @@ function computeObjectives(params) {
             dirY /= dist;
             dirZ /= dist;
 
-            // Puck 360° Math: dot product of direction and rotation axis gives the elevation angle
             const dot = dirX * n[0] + dirY * n[1] + dirZ * n[2];
 
-            // Check if point falls within the vertical FOV band
             if (Math.abs(dot) <= sinVFovHalf) {
-                // Check if ray hits the drone body
                 if (!checkOcclusion(pos, targetPt, bodyRad)) {
-                    isCovered = true;
-                    break;
+                    hits++;
                 }
             }
         }
-        if (isCovered) coveredCount++;
-    }
-
-    const blindRatio = 1 - coveredCount / evalPoints.length;
-
-    for (let i = 0; i < normals.length; i++) {
-        for (let j = i + 1; j < normals.length; j++) {
-            const dot = Math.abs(normals[i][0] * normals[j][0] + normals[i][1] * normals[j][1] + normals[i][2] * normals[j][2]);
-            if (dot > maxOverlap) maxOverlap = dot;
+        
+        if (hits > 0) coveredCount++;
+		if (hits > 1) {
+            redundantCount += (hits - 1); // Your intensity multiplier
         }
     }
 
-    return [blindRatio, maxOverlap];
+	const blindRatio = 1 - (coveredCount / evalPoints.length);
+    
+    // Normalize by maximum possible redundant hits to keep it between 0.0 and 1.0
+    const maxPossibleRedundancy = evalPoints.length * (normals.length - 1);
+    const overlapRatio = maxPossibleRedundancy > 0 
+        ? redundantCount / maxPossibleRedundancy 
+        : 0;
+
+    return [blindRatio, overlapRatio];
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -895,4 +893,12 @@ window.onload = function () {
 
     updateAngularResolutions();
     initLivePlot();
+	
+	// Automatically resize the 3D plot whenever the window changes size
+	window.addEventListener('resize', function() {
+		const plotDiv = document.getElementById('livePlot');
+		if (plotDiv) {
+			Plotly.Plots.resize(plotDiv);
+		}
+	});
 };
