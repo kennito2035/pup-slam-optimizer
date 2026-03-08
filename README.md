@@ -1,4 +1,4 @@
-# LiDAR Arrangement Optimizer for PUP — v1.0.0
+# LiDAR Arrangement Optimizer v1.0.0
 
 A standalone browser tool that uses **Multi-Objective Particle Swarm Optimization (MOPSO)** and **Fibonacci sphere seeding** to find optimal LiDAR sensor arrangements for drone platforms. Designed specifically for use with **[PUP — Parameter Uplink Spectagraph](https://github.com/kennito2035/pup-slam-simulation)**, a PUP simulator inspired by Prometheus 2012. Results can be exported directly as parameter tables for input into parametric CAD assemblies.
 
