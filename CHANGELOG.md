@@ -4,6 +4,14 @@ All notable changes to LiDAR Arrangement Optimizer for PUP are documented here.
 
 ---
 
+## [1.1.0] — PUP-optimizer-v1.1.0.html
+
+### Changed
+- **Upgraded Plotly.js library** — Migrated from version `2.27.0` to `3.4.0`. This update provides improved WebGL rendering performance and the latest visualization features from the Plotly CDN.
+- **Version string** — `<title>` updated from `"PUP Optimizer v1.0.1"` to `"PUP Optimizer v1.1.0"`.
+
+---
+
 ## [1.0.1] — PUP-optimizer-v1.0.1.html
 
 ### Added

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>PUP Optimizer v1.1.0</title>
+        <script src="https://cdn.plot.ly/plotly-3.4.0.min.js" integrity="sha384-pFOQ7loGBChmUyS4Tszy+he8OWeYkwTFjc2xii4aJUWWiGwf2u2OEc04T5iDRpMp" crossorigin="anonymous"></script>
+        <link rel="stylesheet" href="styles.css">
+    </head>
+    <body>
+        <div class="header">
+            <h1>LiDAR Arrangement Optimizer for PUP</h1>
+            <p>Multi-Objective PSO + Fibonacci Sphere Sampling</p>
+        </div>
+        <div class="generative-section">
+            <div class="controls" id="controlsPanel">
+                <!-- ═══════════════════════════════════════ -->
+                <!-- LIDAR SPECIFICATIONS                    -->
+                <!-- ═══════════════════════════════════════ -->
+                <div class="section-title">LiDAR PARAMETERS</div>
+                <div class="control-group">
+                    <label>Horizontal FOV (°)</label>
+                    <input type="number" id="hFovInput" value="360" readonly 
+                        style="background: rgba(0, 229, 255, 0.05); color: var(--subtext); cursor: not-allowed;"
+                        oninput="updateAngularResolutions(); updateLivePlot();">
+                </div>
+                <div class="control-group">
+                    <label>Vertical FOV (°) [Beam Width]</label>
+                    <input type="number" id="vFovInput" value="15.0" step="0.5" min="0.1"
+                        oninput="updateAngularResolutions(); updateLivePlot();">
+                </div>
+                <div class="control-group">
+                    <label>Channels / Beams</label>
+                    <input type="number" id="channelsInput" value="16" step="1" min="1" max="256"
+                        oninput="updateAngularResolutions();">
+                </div>
+                <!-- Auto-calculated resolutions -->
+                <div class="control-group">
+                    <div class="dual-field">
+                        <div>
+                            <div class="computed-label">H. Angular Res (auto)</div>
+                            <div class="computed-field" id="hAngResDisplay">—</div>
+                        </div>
+                        <div>
+                            <div class="computed-label">V. Angular Res (auto)</div>
+                            <div class="computed-field" id="vAngResDisplay">—</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label>Ranging Distance (m): Min / Max</label>
+                    <div class="dual-field">
+                        <input type="number" id="minRangeInput" value="0.10" step="0.05" min="0" placeholder="Min">
+                        <input type="number" id="maxRangeInput" value="100" step="5" min="1" placeholder="Max">
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label>Scanning Frequency (Hz)</label>
+                    <input type="number" id="scanFreqInput" value="10" step="1" min="1"
+                        oninput="updateAngularResolutions();">
+                </div>
+                <div class="control-group">
+                    <label>Ranging Frequency (kHz)</label>
+                    <input type="number" id="rangeFreqInput" value="300" step="10" min="1"
+                        oninput="updateAngularResolutions();">
+                </div>
+                <div class="control-group">
+                    <label>Measurement Noise (cm)</label>
+                    <input type="number" id="noiseInput" value="2.0" step="0.1" min="0">
+                </div>
+                <div class="control-group">
+                    <label>Beam Divergence (mrad): H / V</label>
+                    <div class="dual-field">
+                        <input type="number" id="hDivergInput" value="3.0" step="0.1" min="0" placeholder="Horiz">
+                        <input type="number" id="vDivergInput" value="3.0" step="0.1" min="0" placeholder="Vert">
+                    </div>
+                </div>
+                <!-- ═══════════════════════════════════════ -->
+                <!-- DRONE PARAMETERS                        -->
+                <!-- ═══════════════════════════════════════ -->
+                <div class="section-title" style="margin-top: 8px;">DRONE PARAMETERS</div>
+                <div class="control-group">
+                    <label>Sensor Count (N): <span id="nVal" style="color:var(--accent)">6</span></label>
+                    <input type="range" id="nSlider" min="2" max="16" value="6" step="1"
+                        oninput="document.getElementById('nVal').innerText = this.value">
+                </div>
+                <div class="control-group">
+                    <label>Drone Body Radius (m)</label>
+                    <input type="number" id="bodyRadiusSlider" value="0.80" step="0.01" min="0.05" max="5.0"
+                        oninput="updateBodyRadiusDisplay(this.value)">
+                </div>
+                <div class="control-group">
+                    <label>Sensor Orientation (Coverage Zone)</label>
+                    <select id="orientSelect">
+                        <option value="full">Omni-Directional (Full Sphere)</option>
+                        <option value="upper">Upper Hemisphere</option>
+                        <option value="lower">Lower Hemisphere</option>
+                        <option value="equatorial">Equatorial Band (±45°)</option>
+                    </select>
+                </div>
+                <!-- ═══════════════════════════════════════ -->
+                <!-- PSO ALGORITHM PARAMETERS               -->
+                <!-- ═══════════════════════════════════════ -->
+                <div class="section-title" style="margin-top: 8px;">PSO ALGORITHM</div>
+                <div class="control-group">
+                    <label>Swarm Size: <span id="swarmVal" style="color:var(--accent)">20</span></label>
+                    <input type="range" id="swarmSizeSlider" min="5" max="60" value="20" step="5"
+                        oninput="document.getElementById('swarmVal').innerText = this.value">
+                </div>
+                <div class="control-group">
+                    <label>Inertia Weight (ω): <span id="inertiaVal" style="color:var(--accent)">0.70</span></label>
+                    <input type="range" id="inertiaSlider" min="0.2" max="0.99" value="0.70" step="0.01"
+                        oninput="document.getElementById('inertiaVal').innerText = parseFloat(this.value).toFixed(2)">
+                </div>
+                <div class="control-group">
+                    <label>Cognitive Coeff (c₁) / Social Coeff (c₂)</label>
+                    <div class="dual-field">
+                        <input type="number" id="c1Input" value="1.5" step="0.1" min="0" max="4" placeholder="c1">
+                        <input type="number" id="c2Input" value="1.5" step="0.1" min="0" max="4" placeholder="c2">
+                    </div>
+                </div>
+                <!-- ═══════════════════════════════════════ -->
+                <!-- SPATIAL ANALYTICS                       -->
+                <!-- ═══════════════════════════════════════ -->
+                <div class="section-title" style="margin-top: 8px;">SPATIAL ANALYTICS</div>
+                <div class="stat-grid">
+                    <div class="stat-item">VOL. COVERAGE<span id="st-coverage">0.0%</span></div>
+                    <div class="stat-item">BLIND SPOTS<span id="st-blind" style="color:var(--danger)">100.0%</span></div>
+                    <div class="stat-item">BODY RADIUS<span id="st-rad">0.80 m</span></div>
+                    <div class="stat-item">MAX OVERLAP<span id="st-overlap" style="color:var(--warning)">—</span></div>
+                    <div class="stat-item">PARETO FRONT<span id="st-pareto" style="color:var(--success)">—</span></div>
+                    <div class="stat-item">BEST SCORE<span id="st-loss">0.000</span></div>
+                </div>
+                <div class="btn-row">
+                    <button onclick="startGenerativeOptimization()">Optimize</button>
+                    <button class="btn-stop" onclick="stopGenerativeOptimization()">Stop</button>
+                    <button class="btn-export" onclick="showExport()">Export Optimized Positions</button>
+                </div>
+                <div class="status-box" id="optLog">
+                    <span style="color:var(--subtext)">System Ready.</span><br>
+                    Waiting for target specifications...
+                </div>
+            </div>
+            <div class="plot-container" id="livePlot"></div>
+        </div>
+        <div id="exportModal" class="export-overlay">
+            <div class="export-content">
+                <h3 style="color:var(--accent); margin-top:0; letter-spacing: 1px;">CAD EXPORT MATRIX</h3>
+                <p style="font-size:12px; color:var(--subtext);">Copy these values directly into your parametric assembly environment.</p>
+                <pre id="exportText"></pre>
+                <button onclick="document.getElementById('exportModal').style.display='none'" style="width:100%">CLOSE</button>
+            </div>
+        </div>
+        <script src="script.js"></script>
+    </body>
+</html>

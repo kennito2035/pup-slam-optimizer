@@ -1,6 +1,6 @@
-# LiDAR Arrangement Optimizer v1.0.1
+# LiDAR Arrangement Optimizer v1.1.0
 
-A standalone browser tool that uses **Multi-Objective Particle Swarm Optimization (MOPSO)** and **Fibonacci sphere seeding** to find optimal LiDAR sensor arrangements for drone platforms. Designed specifically for use with **[PUP — Parameter Uplink Spectagraph](https://github.com/kennito2035/pup-slam-simulation)**, a PUP simulator inspired by Prometheus (2012). Results can be exported directly as parameter tables for input into parametric CAD assemblies.
+A standalone browser tool that uses **Multi-Objective Particle Swarm Optimization (MOPSO)** and **Fibonacci sphere seeding** to find optimal LiDAR sensor arrangements for drone platforms. Designed specifically for use with **[PUP — Parameter Uplink Spectagraph](https://github.com/kennito2035/pup-slam-simulation)**, a PUP simulator inspired by Prometheus 2012. Results can be exported directly as parameter tables for input into parametric CAD assemblies.
 
 ---
 
@@ -28,7 +28,7 @@ Given a sensor count, drone body radius, and LiDAR hardware specifications, the 
 ## File Structure
 
 ```
-PUP-optimizer-v1.0.1.html   # Main entry point and UI layout
+PUP-optimizer-v1.1.0.html   # Main entry point and UI layout
 script.js                   # MOPSO engine, fitness evaluation, Plotly visualization, export
 styles.css                  # Dark-mode UI styling
 ```
@@ -39,7 +39,7 @@ styles.css                  # Dark-mode UI styling
 
 - [Plotly.js 2.27.0](https://cdn.plot.ly/plotly-2.27.0.min.js) — 3D scatter visualization
 
-> No build step required. Open `PUP-optimizer-v1.0.1.html` directly in any modern browser. Internet connection required on first load.
+> No build step required. Open `PUP-optimizer-v1.1.0.html` directly in any modern browser. Internet connection required on first load.
 
 ---
 
