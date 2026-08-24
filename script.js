@@ -14,16 +14,27 @@ let swarm = [];
 let paretoArchive = [];
 let bestScore = Infinity;
 let noImprovementCount = 0;
-const PATIENCE = 120;
+const PATIENCE = 360;
 const TOLERANCE = 1e-6;
 const V_MAX = 0.35;
 const ARCHIVE_MAX = 100;
+const REF_POINT_COUNT = 2000;
 
 // ─────────────────────────────────────────────────────────────
 // Helper: derive mount radius from body radius (no slider)
 // ─────────────────────────────────────────────────────────────
 function getMountRadius() {
-    return parseFloat(document.getElementById('bodyRadiusSlider').value) + 0.30;
+    return readNumberInput('bodyRadiusSlider', 0.8, 0.05, 5.0) + 0.30;
+}
+
+// Parse a numeric input field; fall back to the default when the field is
+// blank or not a number, and clamp to the given range
+function readNumberInput(id, fallback, min, max) {
+    let val = parseFloat(document.getElementById(id).value);
+    if (!Number.isFinite(val)) val = fallback;
+    if (val < min) val = min;
+    if (val > max) val = max;
+    return val;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -48,7 +59,7 @@ function setControlsLocked(locked) {
 }
 
 function updateBodyRadiusDisplay(val) {
-    const numVal = parseFloat(val) || 0;
+    const numVal = readNumberInput('bodyRadiusSlider', 0.8, 0.05, 5.0);
     // Update the Spatial Analytics grid display
     document.getElementById('st-rad').innerText = numVal.toFixed(2) + " m";
     // Trigger the 3D visual update
@@ -60,7 +71,7 @@ function updateBodyRadiusDisplay(val) {
 // ─────────────────────────────────────────────────────────────
 function updateAngularResolutions() {
     const hFov = parseFloat(document.getElementById('hFovInput').value) || 360;
-    const vFov = parseFloat(document.getElementById('vFovInput').value);
+    const vFov = readNumberInput('vFovInput', 15, 0.1, 180);
     const channels = parseInt(document.getElementById('channelsInput').value) || 16;
     const scanFreq = parseFloat(document.getElementById('scanFreqInput').value) || 10;
     const rangeFreq = parseFloat(document.getElementById('rangeFreqInput').value) || 300;
@@ -165,7 +176,7 @@ function getShortestAngle(target, current) {
 // ─────────────────────────────────────────────────────────────
 // Reference Points — unit sphere, scaled at render time
 // ─────────────────────────────────────────────────────────────
-function generateReferencePoints(nSamples = 1500) {
+function generateReferencePoints(nSamples = REF_POINT_COUNT) {
     const pts = [];
     const phi = Math.PI * (3 - Math.sqrt(5));
     for (let i = 0; i < nSamples; i++) {
@@ -180,7 +191,7 @@ function generateReferencePoints(nSamples = 1500) {
 
 // Display radius for reference sphere: always outside drone body
 function getRefDisplayRadius() {
-    const bodyRad = parseFloat(document.getElementById('bodyRadiusSlider').value);
+    const bodyRad = readNumberInput('bodyRadiusSlider', 0.8, 0.05, 5.0);
     return bodyRad + 10.0;
 }
 
@@ -206,7 +217,7 @@ function fibonacciSphereInit(n) {
 // Multi-Objective Evaluation
 // ─────────────────────────────────────────────────────────────
 function computeObjectives(params) {
-    const vFov = parseFloat(document.getElementById('vFovInput').value);
+    const vFov = readNumberInput('vFovInput', 15, 0.1, 180);
     const vDiverg = parseFloat(document.getElementById('vDivergInput').value) || 0;
     const vDivergDeg = vDiverg * 180 / Math.PI / 1000;
     const effectiveVFov = Math.max(vFov, vDivergDeg);
@@ -214,7 +225,7 @@ function computeObjectives(params) {
     const vFovRad = effectiveVFov * Math.PI / 180;
     const sinVFovHalf = Math.sin(vFovRad / 2);
 
-    const bodyRad = parseFloat(document.getElementById('bodyRadiusSlider').value);
+    const bodyRad = readNumberInput('bodyRadiusSlider', 0.8, 0.05, 5.0);
     const mountRad = getMountRadius();
     const displayR = getRefDisplayRadius();
 
@@ -311,8 +322,8 @@ function psoStep() {
     if (!isOptimizing) return;
 
     const w = parseFloat(document.getElementById('inertiaSlider').value);
-    const c1 = parseFloat(document.getElementById('c1Input').value);
-    const c2 = parseFloat(document.getElementById('c2Input').value);
+    const c1 = readNumberInput('c1Input', 1.5, 0, 4);
+    const c2 = readNumberInput('c2Input', 1.5, 0, 4);
     const [pitchMin, pitchMax] = getOrientationRange();
 
     for (let step = 0; step < 3; step++) {
@@ -382,12 +393,14 @@ function psoStep() {
         // Corrected score calculation without the misplaced .toFixed()
         const currentScoreValue = currentBest.obj[0] * 0.8 + currentBest.obj[1] * 0.2;
 
-        if (Math.abs(bestScore - currentScoreValue) < TOLERANCE) {
-            noImprovementCount++;
-        } else {
+        // Patience counts iterations without a real improvement of the best
+        // score; each psoStep call advances 3 iterations
+        if (currentScoreValue < bestScore - TOLERANCE) {
+            bestScore = currentScoreValue;
             noImprovementCount = 0;
+        } else {
+            noImprovementCount += 3;
         }
-        if (currentScoreValue < bestScore) bestScore = currentScoreValue;
     }
 
     if (currentEpoch % 15 === 0 || currentEpoch === 3) {
@@ -402,7 +415,7 @@ function psoStep() {
             // Update the Status Box Log
             let statusHtml = `Iteration: <span style="color:#fff">${currentEpoch}</span><br>`;
             statusHtml += `Coverage: <span style="color:var(--accent)">${coveragePct}%</span><br>`;
-            statusHtml += `Max Overlap: <span style="color:var(--warning)">${overlapPct}%</span><br>`;
+            statusHtml += `Redundancy: <span style="color:var(--warning)">${overlapPct}%</span><br>`;
             statusHtml += `Pareto Front: <span style="color:var(--success)">${paretoArchive.length} solution(s)</span>`;
 
             if (noImprovementCount > 10) {
@@ -439,27 +452,21 @@ function psoStep() {
 // Start / Stop
 // ─────────────────────────────────────────────────────────────
 function startGenerativeOptimization() {
+    if (isOptimizing) return;
+
     const n = parseInt(document.getElementById('nSlider').value);
     const swarmSize = parseInt(document.getElementById('swarmSizeSlider').value);
     const [pitchMin, pitchMax] = getOrientationRange();
 
-    // 1. Reset global parameters and clear existing Plotly traces from previous runs
+    // Reset global parameters; initLivePlot below rebuilds the plot from scratch
     genParams = [];
-    if (document.getElementById('livePlot').data && document.getElementById('livePlot').data.length > 2) {
-        const tracesToRemove = [];
-        // Traces 0 and 1 are the background volume and drone body; remove everything else
-        for (let i = 2; i < document.getElementById('livePlot').data.length; i++) {
-            tracesToRemove.push(i);
-        }
-        Plotly.deleteTraces('livePlot', tracesToRemove);
-    }
 
     const fibSeed = fibonacciSphereInit(n).map(p => ({
         pitch: Math.max(pitchMin, Math.min(pitchMax, p.pitch)),
         yaw: p.yaw
     }));
 
-    const sharedPoints = generateReferencePoints(1200);
+    const sharedPoints = generateReferencePoints(REF_POINT_COUNT);
     refPoints = sharedPoints;
     evalPoints = sharedPoints;
 
@@ -468,7 +475,7 @@ function startGenerativeOptimization() {
         const perturbScale = s === 0 ? 0 : 0.6;
         const pos = fibSeed.map(p => ({
             pitch: Math.max(pitchMin, Math.min(pitchMax, p.pitch + (Math.random() - 0.5) * perturbScale)),
-            yaw: ((p.yaw + (Math.random() - 0.5) * perturbScale * 1.2 + Math.PI) % (2 * Math.PI)) - Math.PI
+            yaw: (((p.yaw + (Math.random() - 0.5) * perturbScale * 1.2 + Math.PI) % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI) - Math.PI
         }));
         const vel = Array.from({
             length: n
@@ -538,7 +545,7 @@ function showExport() {
     const hDiverg = parseFloat(document.getElementById('hDivergInput').value);
     const vDiverg = parseFloat(document.getElementById('vDivergInput').value);
     const sensorCount = parseInt(document.getElementById('nSlider').value);
-    const bodyRad = parseFloat(document.getElementById('bodyRadiusSlider').value);
+    const bodyRad = readNumberInput('bodyRadiusSlider', 0.8, 0.05, 5.0);
     const mountRad = getMountRadius();
 
     const hAngRes = document.getElementById('hAngResDisplay').innerText.replace('°', '');
@@ -546,7 +553,7 @@ function showExport() {
 
     const best = getBestArchiveMember();
     const objStr = best ?
-        `Coverage: ${((1-best.obj[0])*100).toFixed(1)}% | Max Overlap: ${(best.obj[1]*100).toFixed(1)}%` :
+        `Coverage: ${((1-best.obj[0])*100).toFixed(1)}% | Redundancy: ${(best.obj[1]*100).toFixed(1)}%` :
         'N/A';
 
     let output = "";
@@ -615,8 +622,15 @@ function buildSphereMesh(r, tSteps = 24, pSteps = 24) {
 // Plot Init
 // ─────────────────────────────────────────────────────────────
 function initLivePlot() {
-    const bodyRad = parseFloat(document.getElementById('bodyRadiusSlider').value);
+    const bodyRad = readNumberInput('bodyRadiusSlider', 0.8, 0.05, 5.0);
     const displayR = getRefDisplayRadius();
+
+    // Keep the user's current view when the plot is rebuilt between runs
+    const plotDiv = document.getElementById('livePlot');
+    const existingCamera = (plotDiv.layout && plotDiv.layout.scene && plotDiv.layout.scene.camera)
+        ? plotDiv.layout.scene.camera
+        : null;
+
     const {
         bx,
         by,
@@ -668,7 +682,7 @@ function initLivePlot() {
             zaxis: {
                 visible: false
             },
-            camera: {
+            camera: existingCamera || {
                 eye: {
                     x: 1.5,
                     y: 1.5,
@@ -688,9 +702,12 @@ function initLivePlot() {
 // Live Plot Update
 // ─────────────────────────────────────────────────────────────
 function updateLivePlot() {
-    const hFov = parseFloat(document.getElementById('hFovInput').value);
-    const vFov = parseFloat(document.getElementById('vFovInput').value);
-    const bodyRad = parseFloat(document.getElementById('bodyRadiusSlider').value);
+    const plotDiv = document.getElementById('livePlot');
+    if (!plotDiv.data) return; // Plot not initialized yet
+
+    const hFov = parseFloat(document.getElementById('hFovInput').value) || 360;
+    const vFov = readNumberInput('vFovInput', 15, 0.1, 180);
+    const bodyRad = readNumberInput('bodyRadiusSlider', 0.8, 0.05, 5.0);
     const mountRad = getMountRadius();
     const displayR = getRefDisplayRadius();
 
@@ -706,8 +723,8 @@ function updateLivePlot() {
 
     const expectedTraces = (genParams.length * 2) + 2;
 
-    if (document.getElementById('livePlot').data.length !== expectedTraces) {
-        const currentTraces = document.getElementById('livePlot').data.length;
+    if (plotDiv.data.length !== expectedTraces) {
+        const currentTraces = plotDiv.data.length;
         if (currentTraces > 2) {
             let toDelete = [];
             for (let i = 2; i < currentTraces; i++) toDelete.push(i);
@@ -771,41 +788,17 @@ function updateLivePlot() {
         u = u.map(x => x / uLen);
         v_vec = v_vec.map(x => x / vLen);
 
-        // Bottom ring
-        for (let j = 0; j <= 8; j++) {
-            let ang = (j / 8) * 2 * Math.PI;
-            hx.push(rBase * n[0] + Math.cos(ang) * hwRadius * u[0] + Math.sin(ang) * hwRadius * v_vec[0]);
-            hy.push(rBase * n[1] + Math.cos(ang) * hwRadius * u[1] + Math.sin(ang) * hwRadius * v_vec[1]);
-            hz.push(rBase * n[2] + Math.cos(ang) * hwRadius * u[2] + Math.sin(ang) * hwRadius * v_vec[2]);
-        }
-        hx.push(null);
-        hy.push(null);
-        hz.push(null); // Break line
-
-        // Top ring
-        for (let j = 0; j <= 8; j++) {
-            let ang = (j / 8) * 2 * Math.PI;
-            hx.push((rBase + hwLength) * n[0] + Math.cos(ang) * hwRadius * u[0] + Math.sin(ang) * hwRadius * v_vec[0]);
-            hy.push((rBase + hwLength) * n[1] + Math.cos(ang) * hwRadius * u[1] + Math.sin(ang) * hwRadius * v_vec[1]);
-            hz.push((rBase + hwLength) * n[2] + Math.cos(ang) * hwRadius * u[2] + Math.sin(ang) * hwRadius * v_vec[2]);
-        }
-        hx.push(null);
-        hy.push(null);
-        hz.push(null); // Break line
-
-        // Connectors
-        for (let j = 0; j < 8; j += 2) {
-            let ang = (j / 8) * 2 * Math.PI;
-            hx.push(rBase * n[0] + Math.cos(ang) * hwRadius * u[0] + Math.sin(ang) * hwRadius * v_vec[0]);
-            hy.push(rBase * n[1] + Math.cos(ang) * hwRadius * u[1] + Math.sin(ang) * hwRadius * v_vec[1]);
-            hz.push(rBase * n[2] + Math.cos(ang) * hwRadius * u[2] + Math.sin(ang) * hwRadius * v_vec[2]);
-
-            hx.push((rBase + hwLength) * n[0] + Math.cos(ang) * hwRadius * u[0] + Math.sin(ang) * hwRadius * v_vec[0]);
-            hy.push((rBase + hwLength) * n[1] + Math.cos(ang) * hwRadius * u[1] + Math.sin(ang) * hwRadius * v_vec[1]);
-            hz.push((rBase + hwLength) * n[2] + Math.cos(ang) * hwRadius * u[2] + Math.sin(ang) * hwRadius * v_vec[2]);
-            hx.push(null);
-            hy.push(null);
-            hz.push(null); // Break line
+        // Two clean rings of vertices; the mesh3d convex hull (alphahull: 0)
+        // spans them into the sensor body, so no line breaks or connector
+        // segments are needed in the payload
+        for (let ring = 0; ring < 2; ring++) {
+            const ringRad = rBase + ring * hwLength;
+            for (let j = 0; j < 8; j++) {
+                let ang = (j / 8) * 2 * Math.PI;
+                hx.push(ringRad * n[0] + Math.cos(ang) * hwRadius * u[0] + Math.sin(ang) * hwRadius * v_vec[0]);
+                hy.push(ringRad * n[1] + Math.cos(ang) * hwRadius * u[1] + Math.sin(ang) * hwRadius * v_vec[1]);
+                hz.push(ringRad * n[2] + Math.cos(ang) * hwRadius * u[2] + Math.sin(ang) * hwRadius * v_vec[2]);
+            }
         }
 
         updateData.x.push(hx);
@@ -814,7 +807,9 @@ function updateLivePlot() {
         indices.push(3 + (i * 2));
     });
 
-    Plotly.update('livePlot', updateData, {}, indices);
+    if (indices.length > 0) {
+        Plotly.update('livePlot', updateData, {}, indices);
+    }
 
     const {
         bx,
@@ -868,12 +863,13 @@ function updateLivePlot() {
         });
     }
 
-    Plotly.restyle('livePlot', {
+    const refRestyle = {
         x: [refPoints.map(p => p[0] * displayR)],
         y: [refPoints.map(p => p[1] * displayR)],
-        z: [refPoints.map(p => p[2] * displayR)],
-        'marker.color': [pointColors]
-    }, [0]);
+        z: [refPoints.map(p => p[2] * displayR)]
+    };
+    if (pointColors) refRestyle['marker.color'] = [pointColors];
+    Plotly.restyle('livePlot', refRestyle, [0]);
 
     if (optimizationStarted) {
         const coveragePct = (coveredCount / refPoints.length * 100).toFixed(1);
@@ -886,8 +882,8 @@ function updateLivePlot() {
 // Init
 // ─────────────────────────────────────────────────────────────
 window.onload = function () {
-    // Generate one set of 2000 points and share it
-    const commonPoints = generateReferencePoints(2000);
+    // Generate one shared set of reference points
+    const commonPoints = generateReferencePoints(REF_POINT_COUNT);
     refPoints = commonPoints;
     evalPoints = commonPoints;
 

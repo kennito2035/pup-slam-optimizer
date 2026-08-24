@@ -1,4 +1,4 @@
-# LiDAR Arrangement Optimizer v1.1.0
+# LiDAR Arrangement Optimizer v1.1.1
 
 A standalone browser tool that uses **Multi-Objective Particle Swarm Optimization (MOPSO)** and **Fibonacci sphere seeding** to find optimal LiDAR sensor arrangements for drone platforms. Designed specifically for use with **[PUP — Parameter Uplink Spectagraph](https://github.com/kennito2035/pup-slam-simulation)**, a PUP simulator inspired by Prometheus 2012. Results can be exported directly as parameter tables for input into parametric CAD assemblies.
 
@@ -6,7 +6,7 @@ A standalone browser tool that uses **Multi-Objective Particle Swarm Optimizatio
 
 ## Overview
 
-Given a sensor count, drone body radius, and LiDAR hardware specifications, the optimizer searches for sensor orientations (pitch + yaw) that simultaneously maximize volumetric coverage and minimize inter-sensor overlap. The search space is the surface of a sphere, constrained to a user-selected orientation zone. A live Plotly 3D visualization updates in real time as the swarm evolves and resizes correctly with the browser window.
+Given a sensor count, drone body radius, and LiDAR hardware specifications, the optimizer searches for sensor orientations (pitch + yaw) that simultaneously maximize volumetric coverage and minimize redundant inter-sensor coverage. The search space is the surface of a sphere, constrained to a user-selected orientation zone. A live Plotly 3D visualization updates in real time as the swarm evolves and resizes correctly with the browser window.
 
 ---
 
@@ -14,10 +14,10 @@ Given a sensor count, drone body radius, and LiDAR hardware specifications, the 
 
 - **MOPSO** — Multi-Objective Particle Swarm Optimization with a capped Pareto archive (max 100 solutions). Each PSO step runs 3 sub-iterations per animation frame via `requestAnimationFrame`, keeping the UI responsive throughout
 - **Fibonacci sphere initialization** — The swarm is seeded using the golden-angle Fibonacci spiral, giving near-uniform initial sensor spacing across the sphere before perturbation
-- **Two-objective fitness evaluation** — Each particle is evaluated against two objectives: blind spot ratio (fraction of 2,000 reference sphere points not covered by any sensor) and maximum pairwise sensor overlap (cosine similarity of facing normals). The Pareto front tracks all non-dominated solutions
+- **Two-objective fitness evaluation** — Each particle is evaluated against two objectives: blind spot ratio (fraction of 2,000 reference sphere points not covered by any sensor) and volumetric redundancy ratio (normalized count of reference points seen by more than one sensor). The Pareto front tracks all non-dominated solutions
 - **Body occlusion test** — For every reference point, a ray-sphere intersection check (`checkOcclusion`) determines whether the drone body blocks the line of sight from the sensor to the evaluation point, excluding self-occluded coverage from the fitness score
 - **Cosine-normalized yaw velocity** — Yaw PSO updates are divided by `cos(pitch)` to prevent particles from spinning excessively near the poles, stabilizing convergence at high and low latitudes
-- **Patience-based auto-stop** — Optimization halts automatically after 120 consecutive iterations with improvement below `1e-6`, preventing unnecessary compute after convergence
+- **Patience-based auto-stop** — Optimization halts automatically after 360 consecutive iterations without the best score improving by more than `1e-6`, preventing unnecessary compute after convergence
 - **Angular resolution auto-calculator** — H. and V. angular resolutions are computed live from scan frequency, ranging frequency, beam divergence (converted from mrad), channels, and FOV — accounting for beam divergence as a floor on the achievable resolution
 - **Responsive 3D plot** — The Plotly visualization fills its container at any window size and calls `Plotly.Plots.resize()` on window resize to stay correctly fitted
 - **CAD export matrix** — Produces a formatted plain-text report of all optimized sensor positions (pitch °, yaw °) alongside full hardware specs, PSO solution quality, and Pareto front size. Suitable for pasting directly into parametric assembly environments
@@ -28,7 +28,7 @@ Given a sensor count, drone body radius, and LiDAR hardware specifications, the 
 ## File Structure
 
 ```
-PUP-optimizer-v1.1.0.html   # Main entry point and UI layout
+PUP-optimizer-v1.1.1.html   # Main entry point and UI layout
 script.js                   # MOPSO engine, fitness evaluation, Plotly visualization, export
 styles.css                  # Dark-mode UI styling
 ```
@@ -37,9 +37,9 @@ styles.css                  # Dark-mode UI styling
 
 ## Dependencies
 
-- [Plotly.js 2.27.0](https://cdn.plot.ly/plotly-2.27.0.min.js) — 3D scatter visualization
+- [Plotly.js 3.4.0](https://cdn.plot.ly/plotly-3.4.0.min.js) — 3D scatter visualization
 
-> No build step required. Open `PUP-optimizer-v1.1.0.html` directly in any modern browser. Internet connection required on first load.
+> No build step required. Open `PUP-optimizer-v1.1.1.html` directly in any modern browser. Internet connection required on first load.
 
 ---
 
@@ -74,7 +74,7 @@ H. and V. angular resolutions are computed automatically and displayed as read-o
 | **Social Coeff (c₂)** | Pull toward the global best from the Pareto archive |
 
 ### 4. Run
-Click **Optimize** to start. The 3D plot updates every 15 iterations showing current sensor positions, scanning arcs, the reference coverage sphere, and the drone body. The status log reports iteration count, coverage %, max overlap %, and Pareto front size.
+Click **Optimize** to start. The 3D plot updates every 15 iterations showing current sensor positions, scanning arcs, the reference coverage sphere, and the drone body. The status log reports iteration count, coverage %, redundancy %, and Pareto front size.
 
 Click **Stop** at any time to halt and unlock controls. The optimizer also stops automatically on convergence.
 
@@ -90,9 +90,9 @@ Click **Export Optimized Positions** to open the CAD Export Matrix modal, contai
 | **Vol. Coverage** | Percentage of reference sphere points visible to at least one sensor, accounting for body occlusion |
 | **Blind Spots** | Inverse of coverage — fraction of the sphere not seen by any sensor |
 | **Body Radius** | Current drone body radius setting |
-| **Max Overlap** | Highest pairwise cosine similarity between any two sensor normals |
+| **Redundancy** | Normalized redundant hit ratio: reference points seen by more than one sensor, scaled by sensor count |
 | **Pareto Front** | Number of non-dominated solutions in the current archive |
-| **Best Score** | Weighted scalar `0.8 × blindRatio + 0.2 × maxOverlap` of the best archive member |
+| **Best Score** | Weighted scalar `0.8 × blindRatio + 0.2 × redundancyRatio` of the best archive member |
 
 ---
 
@@ -100,9 +100,11 @@ Click **Export Optimized Positions** to open the CAD Export Matrix modal, contai
 
 **Fitness objectives** (both minimized):
 - `obj[0]` — blind spot ratio: `1 - coveredPoints / totalRefPoints`
-- `obj[1]` — max overlap: highest absolute dot product between any two sensor normal vectors
+- `obj[1]` — redundancy ratio: `redundantCount / (refPoints × (n - 1))`, where each reference point seen by `hits` sensors contributes `hits - 1` to `redundantCount`
 
-**Best archive member** is selected by weighted scalarization: `0.8 × obj[0] + 0.2 × obj[1]`, prioritizing coverage over overlap reduction.
+**Best archive member** is selected by weighted scalarization: `0.8 × obj[0] + 0.2 × obj[1]`, prioritizing coverage over redundancy reduction.
+
+**Evaluation shell:** coverage and redundancy are evaluated against reference points on a sphere of radius body radius + 10 m. Hardware fields other than the vertical FOV (ranging distances, frequencies, noise, divergence) feed the angular resolution calculator and the export report, not the fitness function.
 
 **Velocity clamping** — pitch and yaw velocities are clamped to `±0.35 rad/step`. Yaw velocity is further normalized by `cos(pitch)` to maintain uniform angular step size across latitudes.
 

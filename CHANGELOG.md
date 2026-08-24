@@ -4,6 +4,25 @@ All notable changes to LiDAR Arrangement Optimizer for PUP are documented here.
 
 ---
 
+## [1.1.1]: PUP-optimizer-v1.1.1.html
+
+### Fixed
+- **Convergence detection**: the plateau counter previously reset on any score change larger than `1e-6`, including changes for the worse, so noisy runs could fail to auto-stop; it also counted animation frames (3 iterations each) while the documentation promised iterations. The counter now advances by 3 per frame and resets only when the best score improves by more than `1e-6`, with `PATIENCE` set to 360 iterations.
+- **Reference point count unified**: the page loaded 2,000 reference points but each Optimize click silently regenerated 1,200 of them, visibly thinning the coverage sphere and contradicting the README. A single `REF_POINT_COUNT = 2000` constant is now used everywhere.
+- **Plot update guards**: `updateLivePlot` exits early until the Plotly plot exists (an input event before initialization previously threw), skips `Plotly.update` when there are no sensor traces yet, and only writes `marker.color` once coverage colors have been computed.
+- **Sensor body mesh payload**: the `mesh3d` sensor bodies were fed polyline-style `null` break markers and duplicated connector points, which the convex hull routine happened to tolerate. The payload is now a clean two-ring vertex list.
+- **Input validation**: vertical FOV, cognitive and social coefficients, and drone body radius fall back to their defaults and clamp to their documented ranges when blank or out of range; vertical FOV is capped at 180 in the markup because the half-angle coverage model is not meaningful beyond it.
+
+### Changed
+- **Objective naming**: the second objective has been the volumetric redundancy ratio since 1.0.1, but the stat grid, status log, and CAD export still labeled it "Max Overlap". All three now read "Redundancy", and the README algorithm sections describe the implemented formula. Anything parsing the export text for the old label needs the new one.
+- **View preserved across runs**: restarting the optimizer no longer resets the 3D camera to the default angle.
+- **Dead code removed**: the pre-run trace clearing block (the plot is rebuilt from scratch on every start), the `oninput` handler on the read-only horizontal FOV field, and the double-start window on the Optimize button.
+- **Seed yaw wrapping**: swarm seeding now uses the same double-modulo wrap as the PSO step, keeping seeded yaw inside the [-180, 180) degree range.
+- **Version string**: `<title>` updated from `"PUP Optimizer v1.1.0"` to `"PUP Optimizer v1.1.1"`.
+- **README corrections**: dependency entry updated to Plotly.js 3.4.0 (the page has loaded 3.4.0 since 1.1.0), and a note added that fitness is evaluated on a reference shell at body radius + 10 m.
+
+---
+
 ## [1.1.0] — PUP-optimizer-v1.1.0.html
 
 ### Changed

@@ -3,7 +3,7 @@
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>PUP Optimizer v1.1.0</title>
+        <title>PUP Optimizer v1.1.1</title>
         <script src="https://cdn.plot.ly/plotly-3.4.0.min.js" integrity="sha384-pFOQ7loGBChmUyS4Tszy+he8OWeYkwTFjc2xii4aJUWWiGwf2u2OEc04T5iDRpMp" crossorigin="anonymous"></script>
         <link rel="stylesheet" href="styles.css">
     </head>
@@ -20,13 +20,12 @@
                 <div class="section-title">LiDAR PARAMETERS</div>
                 <div class="control-group">
                     <label>Horizontal FOV (°)</label>
-                    <input type="number" id="hFovInput" value="360" readonly 
-                        style="background: rgba(0, 229, 255, 0.05); color: var(--subtext); cursor: not-allowed;"
-                        oninput="updateAngularResolutions(); updateLivePlot();">
+                    <input type="number" id="hFovInput" value="360" readonly
+                        style="background: rgba(0, 229, 255, 0.05); color: var(--subtext); cursor: not-allowed;">
                 </div>
                 <div class="control-group">
                     <label>Vertical FOV (°) [Beam Width]</label>
-                    <input type="number" id="vFovInput" value="15.0" step="0.5" min="0.1"
+                    <input type="number" id="vFovInput" value="15.0" step="0.5" min="0.1" max="180"
                         oninput="updateAngularResolutions(); updateLivePlot();">
                 </div>
                 <div class="control-group">
@@ -127,7 +126,7 @@
                     <div class="stat-item">VOL. COVERAGE<span id="st-coverage">0.0%</span></div>
                     <div class="stat-item">BLIND SPOTS<span id="st-blind" style="color:var(--danger)">100.0%</span></div>
                     <div class="stat-item">BODY RADIUS<span id="st-rad">0.80 m</span></div>
-                    <div class="stat-item">MAX OVERLAP<span id="st-overlap" style="color:var(--warning)">—</span></div>
+                    <div class="stat-item">REDUNDANCY<span id="st-overlap" style="color:var(--warning)">—</span></div>
                     <div class="stat-item">PARETO FRONT<span id="st-pareto" style="color:var(--success)">—</span></div>
                     <div class="stat-item">BEST SCORE<span id="st-loss">0.000</span></div>
                 </div>
